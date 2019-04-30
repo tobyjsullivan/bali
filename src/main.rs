@@ -1,10 +1,10 @@
-extern crate hyper;
 extern crate futures;
+extern crate hyper;
 
 use futures::future;
-use hyper::{Body, HeaderMap, Method, Request, Response, Server, StatusCode};
 use hyper::rt::Future;
 use hyper::service::service_fn;
+use hyper::{Body, HeaderMap, Method, Request, Response, Server, StatusCode};
 
 const SERVER_NAME: &str = "bali/1.0";
 const PHRASE: &str = "Hello, World!";
@@ -17,15 +17,13 @@ struct Text<'a> {
     content: &'a str,
 }
 
-impl <'a> Text<'a> {
+impl<'a> Text<'a> {
     fn new(content: &'a str) -> Self {
-        Self {
-            content,
-        }
+        Self { content }
     }
 }
 
-impl <'a> Component for Text<'a> {
+impl<'a> Component for Text<'a> {
     fn render(&self) -> String {
         self.content.to_owned()
     }
@@ -74,7 +72,7 @@ fn homepage() -> Document {
 }
 
 // Just a simple type alias
-type BoxFut = Box<Future<Item=Response<Body>, Error=hyper::Error> + Send>;
+type BoxFut = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
 fn handler(req: Request<Body>) -> BoxFut {
     let mut response = Response::new(Body::empty());
@@ -83,10 +81,10 @@ fn handler(req: Request<Body>) -> BoxFut {
             let doc = homepage();
             *response.headers_mut() = doc.headers();
             *response.body_mut() = doc.body();
-        },
+        }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
-        },
+        }
     }
 
     Box::new(future::ok(response))
