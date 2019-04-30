@@ -2,10 +2,11 @@ extern crate hyper;
 extern crate futures;
 
 use futures::future;
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use hyper::{Body, HeaderMap, Method, Request, Response, Server, StatusCode};
 use hyper::rt::Future;
 use hyper::service::service_fn;
 
+const SERVER_NAME: &str = "bali/1.0";
 const PHRASE: &str = "Hello, World!";
 
 trait Component {
@@ -45,14 +46,22 @@ impl Document {
         self.components.push(el);
     }
 
-    fn render(&self) -> String {
+    fn headers(&self) -> HeaderMap {
+        let mut headers: HeaderMap = HeaderMap::default();
+        headers.insert("content-type", "text/html".parse().unwrap());
+        headers.insert("server", SERVER_NAME.parse().unwrap());
+
+        headers
+    }
+
+    fn body(&self) -> Body {
         let mut buf = String::new();
         buf.push_str("<!DOCTYPE html>\n");
         for c in &self.components {
             buf.push_str(&c.render());
         }
 
-        buf
+        Body::from(buf)
     }
 }
 
@@ -64,12 +73,6 @@ fn homepage() -> Document {
     doc
 }
 
-impl From<Document> for String {
-    fn from(doc: Document) -> String {
-        doc.render()
-    }
-}
-
 // Just a simple type alias
 type BoxFut = Box<Future<Item=Response<Body>, Error=hyper::Error> + Send>;
 
@@ -78,7 +81,8 @@ fn handler(req: Request<Body>) -> BoxFut {
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/") => {
             let doc = homepage();
-            *response.body_mut() = Body::from(String::from(doc));
+            *response.headers_mut() = doc.headers();
+            *response.body_mut() = doc.body();
         },
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
