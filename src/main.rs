@@ -29,8 +29,35 @@ impl<'a> Component for Text<'a> {
     }
 }
 
+struct Image {
+    src: String,
+}
+
+impl Image {
+    fn new(src: &str) -> Self {
+        Self {
+            src: src.to_owned(),
+        }
+    }
+}
+
+impl Component for Image {
+    fn render(&self) -> String {
+        let mut buf = String::new();
+        let content = format!("<img src=\"{}\" />", self.src);
+        buf.push_str(content.as_ref());
+
+        buf
+    }
+}
+
 struct Document {
     components: Vec<Box<Component>>,
+}
+
+trait Resource {
+    fn headers(&self) -> HeaderMap;
+    fn body(&self) -> Body;
 }
 
 impl Document {
@@ -43,7 +70,9 @@ impl Document {
     fn insert_element<'a>(&mut self, el: Box<Component>) {
         self.components.push(el);
     }
+}
 
+impl Resource for Document {
     fn headers(&self) -> HeaderMap {
         let mut headers: HeaderMap = HeaderMap::default();
         headers.insert("content-type", "text/html".parse().unwrap());
@@ -63,12 +92,52 @@ impl Document {
     }
 }
 
+struct File {
+    content: Vec<u8>,
+    mime_type: String,
+}
+
+impl File {
+    fn new(content: Vec<u8>, mime_type: &str) -> Self {
+        Self {
+            content,
+            mime_type: mime_type.to_owned(),
+        }
+    }
+}
+
+impl Resource for File {
+    fn headers(&self) -> HeaderMap {
+        let mut headers: HeaderMap = HeaderMap::default();
+        headers.insert("content-type", self.mime_type.parse().unwrap());
+        headers.insert("server", SERVER_NAME.parse().unwrap());
+
+        headers
+    }
+
+    fn body(&self) -> Body {
+        Body::from(self.content.clone())
+    }
+}
+
 fn homepage() -> Document {
     let text = Text::new(PHRASE);
+    let img = Image::new("/cat.jpg");
     let mut doc = Document::new();
     doc.insert_element(Box::new(text));
+    doc.insert_element(Box::new(img));
 
     doc
+}
+
+fn img_cow() -> File {
+    let data = include_bytes!("images/cow.jpg");
+    File::new(data.to_vec(), "image/jpeg")
+}
+
+fn img_cat() -> File {
+    let data = include_bytes!("images/cat.jpg");
+    File::new(data.to_vec(), "image/jpeg")
 }
 
 // Just a simple type alias
@@ -81,6 +150,16 @@ fn handler(req: Request<Body>) -> BoxFut {
             let doc = homepage();
             *response.headers_mut() = doc.headers();
             *response.body_mut() = doc.body();
+        }
+        (&Method::GET, "/cow.jpg") => {
+            let img = img_cow();
+            *response.headers_mut() = img.headers();
+            *response.body_mut() = img.body();
+        }
+        (&Method::GET, "/cat.jpg") => {
+            let img = img_cat();
+            *response.headers_mut() = img.headers();
+            *response.body_mut() = img.body();
         }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
