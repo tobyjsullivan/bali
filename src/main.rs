@@ -67,7 +67,7 @@ impl Document {
         }
     }
 
-    fn insert_element<'a>(&mut self, el: Box<Component>) {
+    fn insert_element(&mut self, el: Box<Component>) {
         self.components.push(el);
     }
 }
@@ -92,13 +92,25 @@ impl Resource for Document {
     }
 }
 
+enum DataSource {
+    Static { content: &'static [u8] },
+}
+
+impl DataSource {
+    fn as_bytes(&self) -> Vec<u8> {
+        match self {
+            DataSource::Static { content } => content.to_vec(),
+        }
+    }
+}
+
 struct File {
-    content: Vec<u8>,
+    content: DataSource,
     mime_type: String,
 }
 
 impl File {
-    fn new(content: Vec<u8>, mime_type: &str) -> Self {
+    fn new(content: DataSource, mime_type: &str) -> Self {
         Self {
             content,
             mime_type: mime_type.to_owned(),
@@ -116,7 +128,7 @@ impl Resource for File {
     }
 
     fn body(&self) -> Body {
-        Body::from(self.content.clone())
+        Body::from(self.content.as_bytes())
     }
 }
 
@@ -131,13 +143,17 @@ fn homepage() -> Document {
 }
 
 fn img_cow() -> File {
-    let data = include_bytes!("images/cow.jpg");
-    File::new(data.to_vec(), "image/jpeg")
+    let ds = DataSource::Static {
+        content: include_bytes!("images/cow.jpg"),
+    };
+    File::new(ds, "image/jpeg")
 }
 
 fn img_cat() -> File {
-    let data = include_bytes!("images/cat.jpg");
-    File::new(data.to_vec(), "image/jpeg")
+    let ds = DataSource::Static {
+        content: include_bytes!("images/cat.jpg"),
+    };
+    File::new(ds, "image/jpeg")
 }
 
 // Just a simple type alias
